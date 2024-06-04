@@ -171,6 +171,14 @@ class GetRequestPacket : public Packet {
     static GetRequestPacket instance = GetRequestPacket(GetCommand::ERROR_INFO);
     return instance;
   }
+  static GetRequestPacket &get_functions1_instance() {
+    static GetRequestPacket instance = GetRequestPacket(GetCommand::FUNCTIONS_1);
+    return instance;
+  }
+  static GetRequestPacket &get_functions2_instance() {
+    static GetRequestPacket instance = GetRequestPacket(GetCommand::FUNCTIONS_2);
+    return instance;
+  }
   using Packet::Packet;
 
  private:
@@ -256,6 +264,20 @@ class ErrorStateGetResponsePacket : public Packet {
 
   bool error_present() const { return get_error_code() != 0x8000 || get_raw_short_code() != 0x00; }
 
+  std::string to_string() const override;
+};
+
+class Functions1GetResponsePacket : public Packet {
+  using Packet::Packet;
+
+ public:
+  std::string to_string() const override;
+};
+
+class Functions2GetResponsePacket : public Packet {
+  using Packet::Packet;
+
+ public:
   std::string to_string() const override;
 };
 
@@ -407,6 +429,8 @@ class PacketProcessor {
   virtual void process_packet(const StatusGetResponsePacket &packet){};
   virtual void process_packet(const StandbyGetResponsePacket &packet){};
   virtual void process_packet(const ErrorStateGetResponsePacket &packet){};
+  virtual void process_packet(const Functions1GetResponsePacket &packet){};
+  virtual void process_packet(const Functions2GetResponsePacket &packet){};
   virtual void process_packet(const RemoteTemperatureSetRequestPacket &packet){};
   virtual void process_packet(const SetResponsePacket &packet){};
 };

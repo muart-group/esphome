@@ -35,6 +35,8 @@ enum class GetCommand : uint8_t {
   ERROR_INFO = 0x04,
   STATUS = 0x06,
   STANDBY = 0x09,
+  FUNCTIONS_1 = 0x20,
+  FUNCTIONS_2 = 0x22,
   A_9 = 0xa9
 };
 

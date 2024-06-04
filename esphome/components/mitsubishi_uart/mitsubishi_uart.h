@@ -108,6 +108,8 @@ class MitsubishiUART : public PollingComponent, public climate::Climate, public 
   void process_packet(const StatusGetResponsePacket &packet) override;
   void process_packet(const StandbyGetResponsePacket &packet) override;
   void process_packet(const ErrorStateGetResponsePacket &packet) override;
+  void process_packet(const Functions1GetResponsePacket &packet) override;
+  void process_packet(const Functions2GetResponsePacket &packet) override;
   void process_packet(const RemoteTemperatureSetRequestPacket &packet) override;
   void process_packet(const SetResponsePacket &packet) override;
 

@@ -325,6 +325,16 @@ void MitsubishiUART::process_packet(const ErrorStateGetResponsePacket &packet) {
   publish_on_update_ |= (old_error_code != error_code_sensor_->raw_state);
 }
 
+void MitsubishiUART::process_packet(const Functions1GetResponsePacket &packet) {
+  ESP_LOGV(TAG, "Processing %s", packet.to_string().c_str());
+  route_packet_(packet);
+}
+
+void MitsubishiUART::process_packet(const Functions2GetResponsePacket &packet) {
+  ESP_LOGV(TAG, "Processing %s", packet.to_string().c_str());
+  route_packet_(packet);
+}
+
 void MitsubishiUART::process_packet(const RemoteTemperatureSetRequestPacket &packet) {
   ESP_LOGV(TAG, "Processing %s", packet.to_string().c_str());
 

@@ -59,6 +59,24 @@ std::string ErrorStateGetResponsePacket::to_string() const {
           "\n Error State: " + (error_present() ? "Yes" : "No") + " ErrorCode: " + format_hex(get_error_code()) +
           " ShortCode: " + get_short_code() + "(" + format_hex(get_raw_short_code()) + ")");
 }
+std::string Functions1GetResponsePacket::to_string() const {
+  std::stringstream funcstream;
+  funcstream << "Functions1 Response: " + Packet::to_string() + CONSOLE_COLOR_PURPLE + "\n";
+  for (uint8_t i = 1; i < pkt_.get_length() - 6; i++) {
+    uint8_t b = pkt_.get_payload_byte(i);
+    funcstream << std::to_string(((b >> 2) & 0xff) + 100) + ":" + std::to_string(b & 3) + " ";
+  }
+  return funcstream.str();
+}
+std::string Functions2GetResponsePacket::to_string() const {
+  std::stringstream funcstream;
+  funcstream << "Functions2 Response: " + Packet::to_string() + CONSOLE_COLOR_PURPLE + "\n";
+  for (uint8_t i = 1; i < pkt_.get_length() - 6; i++) {
+    uint8_t b = pkt_.get_payload_byte(i);
+    funcstream << std::to_string(((b >> 2) & 0xff) + 100) + ":" + std::to_string(b & 3) + " ";
+  }
+  return funcstream.str();
+}
 std::string RemoteTemperatureSetRequestPacket::to_string() const {
   return ("Remote Temp Set Request: " + Packet::to_string() + CONSOLE_COLOR_PURPLE +
           "\n Temp:" + std::to_string(get_remote_temperature()));
