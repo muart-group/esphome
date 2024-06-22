@@ -37,7 +37,7 @@ RawPacket::RawPacket() {
   // TODO: Is this okay?
 }
 
-uint8_t RawPacket::calculate_checksum() const {
+uint8_t RawPacket::calculate_checksum_() const {  // NOLINT(readability-identifier-naming)
   uint8_t sum = 0;
   for (int i = 0; i < checksum_index_; i++) {
     sum += packet_bytes_[i];

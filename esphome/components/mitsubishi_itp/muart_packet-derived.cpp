@@ -315,12 +315,12 @@ uint8_t ThermostatStateUploadPacket::get_auto_mode() const { return pkt_.get_pay
 
 float ThermostatStateUploadPacket::get_heat_setpoint() const {
   uint8_t enhanced_raw_temp = pkt_.get_payload_byte(PLINDEX_HEAT_SETPOINT);
-  return MUARTUtils::temp_scale_a_to_deg_c(enhancedRawTemp);
+  return MUARTUtils::temp_scale_a_to_deg_c(enhanced_raw_temp);
 }
 
 float ThermostatStateUploadPacket::get_cool_setpoint() const {
   uint8_t enhanced_raw_temp = pkt_.get_payload_byte(PLINDEX_COOL_SETPOINT);
-  return MUARTUtils::temp_scale_a_to_deg_c(enhancedRawTemp);
+  return MUARTUtils::temp_scale_a_to_deg_c(enhanced_raw_temp);
 }
 
 // ThermostatStateDownloadResponsePacket functions
@@ -328,9 +328,9 @@ ThermostatStateDownloadResponsePacket &ThermostatStateDownloadResponsePacket::se
   int32_t encoded_timestamp = ((ts.year - 2017) << 26) | (ts.month << 22) | (ts.day_of_month << 17) | (ts.hour << 12) |
                               (ts.minute << 6) | (ts.second);
 
-  int32_t swapped_timestamp = byteswap(encodedTimestamp);
+  int32_t swapped_timestamp = byteswap(encoded_timestamp);
 
-  pkt_.set_payload_bytes(PLINDEX_ADAPTER_TIMESTAMP, &swappedTimestamp, 4);
+  pkt_.set_payload_bytes(PLINDEX_ADAPTER_TIMESTAMP, &swapped_timestamp, 4);
   pkt_.set_payload_byte(10, 0x07);  // ???
 
   return *this;
@@ -342,14 +342,14 @@ ThermostatStateDownloadResponsePacket &ThermostatStateDownloadResponsePacket::se
 }
 
 ThermostatStateDownloadResponsePacket &ThermostatStateDownloadResponsePacket::set_heat_setpoint(float high_temp) {
-  uint8_t temp_a = highTemp != NAN ? MUARTUtils::deg_c_to_temp_scale_a(highTemp) : 0x00;
+  uint8_t temp_a = high_temp != NAN ? MUARTUtils::deg_c_to_temp_scale_a(high_temp) : 0x00;
 
   pkt_.set_payload_byte(PLINDEX_HEAT_SETPOINT, temp_a);
   return *this;
 }
 
 ThermostatStateDownloadResponsePacket &ThermostatStateDownloadResponsePacket::set_cool_setpoint(float low_temp) {
-  uint8_t temp_a = lowTemp != NAN ? MUARTUtils::deg_c_to_temp_scale_a(lowTemp) : 0x00;
+  uint8_t temp_a = low_temp != NAN ? MUARTUtils::deg_c_to_temp_scale_a(low_temp) : 0x00;
 
   pkt_.set_payload_byte(PLINDEX_COOL_SETPOINT, temp_a);
   return *this;
