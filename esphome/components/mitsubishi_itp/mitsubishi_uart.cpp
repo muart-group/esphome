@@ -44,30 +44,7 @@ void MitsubishiUART::save_preferences_() {
     prefs.currentTemperatureSourceIndex = index->second;
   }
 
-  auto lmtt = last_mode_target_temperature_.find(climate::CLIMATE_MODE_HEAT_COOL);
-  if (lmtt != last_mode_target_temperature_.end()) {
-    prefs.lastHeatCoolTargetTemperature = lmtt->second;
-  }
-
-  lmtt = last_mode_target_temperature_.find(climate::CLIMATE_MODE_COOL);
-  if (lmtt != last_mode_target_temperature_.end()) {
-    prefs.lastCoolTargetTemperature = lmtt->second;
-  }
-
-  lmtt = last_mode_target_temperature_.find(climate::CLIMATE_MODE_HEAT);
-  if (lmtt != last_mode_target_temperature_.end()) {
-    prefs.lastHeatTargetTemperature = lmtt->second;
-  }
-
-  lmtt = last_mode_target_temperature_.find(climate::CLIMATE_MODE_FAN_ONLY);
-  if (lmtt != last_mode_target_temperature_.end()) {
-    prefs.lastFanTargetTemperature = lmtt->second;
-  }
-
-  lmtt = last_mode_target_temperature_.find(climate::CLIMATE_MODE_DRY);
-  if (lmtt != last_mode_target_temperature_.end()) {
-    prefs.lastDryTargetTemperature = lmtt->second;
-  }
+  prefs.lastModeTargetTemperatures = last_mode_target_temperatures_;
 
   preferences_.save(&prefs);
 }
@@ -90,21 +67,15 @@ void MitsubishiUART::restore_preferences_() {
     }
 
     // lastModeTargetTemperatures
-    if (prefs.lastHeatCoolTargetTemperature.has_value()) {
-      last_mode_target_temperature_[climate::CLIMATE_MODE_HEAT_COOL] = prefs.lastHeatCoolTargetTemperature.value();
+    for (auto i = 0; i < MAX_MODE_INDEX; i++) {
+      if (prefs.lastModeTargetTemperatures[i] > 0) {
+        // If any targets have been set, assume valid preferences and load them
+        last_mode_target_temperatures_ = prefs.lastModeTargetTemperatures;
+        ESP_LOGCONFIG(TAG, "Last Mode Target Temperatures preference loaded.");
+        break;
+      }
     }
-    if (prefs.lastCoolTargetTemperature.has_value()) {
-      last_mode_target_temperature_[climate::CLIMATE_MODE_COOL] = prefs.lastCoolTargetTemperature.value();
-    }
-    if (prefs.lastHeatTargetTemperature.has_value()) {
-      last_mode_target_temperature_[climate::CLIMATE_MODE_HEAT] = prefs.lastHeatTargetTemperature.value();
-    }
-    if (prefs.lastFanTargetTemperature.has_value()) {
-      last_mode_target_temperature_[climate::CLIMATE_MODE_FAN_ONLY] = prefs.lastFanTargetTemperature.value();
-    }
-    if (prefs.lastDryTargetTemperature.has_value()) {
-      last_mode_target_temperature_[climate::CLIMATE_MODE_DRY] = prefs.lastDryTargetTemperature.value();
-    }
+
   } else {
     // TODO: Shouldn't need to define setting all these defaults twice
     ESP_LOGCONFIG(TAG, "Preferences not loaded.");

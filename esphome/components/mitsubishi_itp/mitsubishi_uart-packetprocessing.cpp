@@ -121,7 +121,7 @@ void MitsubishiUART::process_packet(const SettingsGetResponsePacket &packet) {
         mode = climate::CLIMATE_MODE_OFF;
     }
 
-    last_mode_target_temperature_[mode] = target_temperature;
+    last_mode_target_temperatures_[mode] = target_temperature;
   } else {
     mode = climate::CLIMATE_MODE_OFF;
   }

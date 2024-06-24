@@ -36,6 +36,8 @@ const std::array<std::string, 7> ACTUAL_FAN_SPEED_NAMES = {"Off",  "Very Low",  
 
 const std::array<std::string, 5> THERMOSTAT_BATTERY_STATE_NAMES = {"OK", "Low", "Critical", "Replace", "Unknown"};
 
+const auto MAX_MODE_INDEX = 1 + climate::ClimateMode::CLIMATE_MODE_AUTO;  // Update if more modes are added
+
 class MitsubishiUART : public PollingComponent, public climate::Climate, public PacketProcessor {
  public:
   /**
@@ -215,18 +217,15 @@ class MitsubishiUART : public PollingComponent, public climate::Climate, public 
 
   MHKState mhk_state_;
 
-  std::map<climate::ClimateMode, float> last_mode_target_temperature_;
+  std::array<float, MAX_MODE_INDEX> last_mode_target_temperatures_;  // Update if modes higher
+                                                                     // than AUTO are added
 };
 
 struct MUARTPreferences {
   optional<size_t> currentTemperatureSourceIndex = nullopt;  // Index of selected value
   // optional<uint32_t> currentTemperatureSourceHash = nullopt; // Hash of selected value (to make sure it hasn't
   // changed since last save)
-  optional<float> lastHeatCoolTargetTemperature = nullopt;
-  optional<float> lastCoolTargetTemperature = nullopt;
-  optional<float> lastHeatTargetTemperature = nullopt;
-  optional<float> lastFanTargetTemperature = nullopt;
-  optional<float> lastDryTargetTemperature = nullopt;
+  std::array<float, MAX_MODE_INDEX> lastModeTargetTemperatures;
 };
 
 }  // namespace mitsubishi_itp
