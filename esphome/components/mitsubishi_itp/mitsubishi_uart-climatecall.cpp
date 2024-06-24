@@ -78,7 +78,17 @@ void MitsubishiUART::control(const climate::ClimateCall &call) {
   if (call.get_target_temperature().has_value()) {
     target_temperature = call.get_target_temperature().value();
     set_request_packet.set_target_temperature(call.get_target_temperature().value());
+  } else if (call.get_mode().has_value()) {
+    // If we didn't get a new target temp, but we did get a mode, use the last known target temp:
+    auto previous_target = last_mode_target_temperature_.find(call.get_mode().value());
+    if (previous_target != last_mode_target_temperature_.end()) {
+      ESP_LOGD(TAG, "Loading previous target temp %f", previous_target->second);
+      target_temperature = previous_target->second;
+      set_request_packet.set_target_temperature(previous_target->second);
+    }
+  }
 
+  if (call.get_target_temperature().has_value() || call.get_mode().has_value()) {
     // update our MHK tracking setpoints accordingly
     switch (mode) {
       case climate::CLIMATE_MODE_COOL:

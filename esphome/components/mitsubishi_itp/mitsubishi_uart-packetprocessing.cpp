@@ -71,7 +71,27 @@ void MitsubishiUART::process_packet(const SettingsGetResponsePacket &packet) {
   ESP_LOGV(TAG, "Processing %s", packet.to_string().c_str());
   route_packet_(packet);
 
-  // Mode
+  // Temperature
+  const float old_target_temperature = target_temperature;
+  target_temperature = packet.get_target_temp();
+  publish_on_update_ |= (old_target_temperature != target_temperature);
+
+  switch (mode) {
+    case climate::CLIMATE_MODE_COOL:
+    case climate::CLIMATE_MODE_DRY:
+      this->mhk_state_.cool_setpoint_ = target_temperature;
+      break;
+    case climate::CLIMATE_MODE_HEAT:
+      this->mhk_state_.heat_setpoint_ = target_temperature;
+      break;
+    case climate::CLIMATE_MODE_HEAT_COOL:
+      this->mhk_state_.cool_setpoint_ = target_temperature + 2;
+      this->mhk_state_.heat_setpoint_ = target_temperature - 2;
+    default:
+      break;
+  }
+
+  // Mode (and setting last_*_target temperature)
 
   const climate::ClimateMode old_mode = mode;
   if (packet.get_power()) {
@@ -100,6 +120,8 @@ void MitsubishiUART::process_packet(const SettingsGetResponsePacket &packet) {
       default:
         mode = climate::CLIMATE_MODE_OFF;
     }
+
+    last_mode_target_temperature_[mode] = target_temperature;
   } else {
     mode = climate::CLIMATE_MODE_OFF;
   }
@@ -111,26 +133,6 @@ void MitsubishiUART::process_packet(const SettingsGetResponsePacket &packet) {
     const bool old_isee_status = isee_status_sensor_->state;
     isee_status_sensor_->state = packet.is_i_see_enabled();
     publish_on_update_ |= (old_isee_status != isee_status_sensor_->state);
-  }
-
-  // Temperature
-  const float old_target_temperature = target_temperature;
-  target_temperature = packet.get_target_temp();
-  publish_on_update_ |= (old_target_temperature != target_temperature);
-
-  switch (mode) {
-    case climate::CLIMATE_MODE_COOL:
-    case climate::CLIMATE_MODE_DRY:
-      this->mhk_state_.cool_setpoint_ = target_temperature;
-      break;
-    case climate::CLIMATE_MODE_HEAT:
-      this->mhk_state_.heat_setpoint_ = target_temperature;
-      break;
-    case climate::CLIMATE_MODE_HEAT_COOL:
-      this->mhk_state_.cool_setpoint_ = target_temperature + 2;
-      this->mhk_state_.heat_setpoint_ = target_temperature - 2;
-    default:
-      break;
   }
 
   // Fan
@@ -433,8 +435,10 @@ void MitsubishiUART::process_packet(const ThermostatStateUploadPacket &packet) {
 
   ESP_LOGV(TAG, "Processing inbound %s", packet.to_string().c_str());
 
-  if (packet.get_flags() & 0x08) this->mhk_state_.heat_setpoint_ = packet.get_heat_setpoint();
-  if (packet.get_flags() & 0x10) this->mhk_state_.cool_setpoint_ = packet.get_cool_setpoint();
+  if (packet.get_flags() & 0x08)
+    this->mhk_state_.heat_setpoint_ = packet.get_heat_setpoint();
+  if (packet.get_flags() & 0x10)
+    this->mhk_state_.cool_setpoint_ = packet.get_cool_setpoint();
 
   ts_bridge_->send_packet(SetResponsePacket());
 }
@@ -475,7 +479,7 @@ void MitsubishiUART::handle_thermostat_state_download_request(const GetRequestPa
     response.set_timestamp(this->time_source_->now());
   } else {
     ESP_LOGW(TAG, "No time source specified. Cannot provide accurate time!");
-    response.set_timestamp(ESPTime::from_epoch_utc(1704067200)); // 2024-01-01 00:00:00Z
+    response.set_timestamp(ESPTime::from_epoch_utc(1704067200));  // 2024-01-01 00:00:00Z
   }
 
   ts_bridge_->send_packet(response);

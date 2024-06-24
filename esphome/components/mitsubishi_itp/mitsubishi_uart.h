@@ -214,12 +214,19 @@ class MitsubishiUART : public PollingComponent, public climate::Climate, public 
   bool enhanced_mhk_support_ = false;
 
   MHKState mhk_state_;
+
+  std::map<climate::ClimateMode, float> last_mode_target_temperature_;
 };
 
 struct MUARTPreferences {
   optional<size_t> currentTemperatureSourceIndex = nullopt;  // Index of selected value
   // optional<uint32_t> currentTemperatureSourceHash = nullopt; // Hash of selected value (to make sure it hasn't
   // changed since last save)
+  optional<float> lastHeatCoolTargetTemperature = nullopt;
+  optional<float> lastCoolTargetTemperature = nullopt;
+  optional<float> lastHeatTargetTemperature = nullopt;
+  optional<float> lastFanTargetTemperature = nullopt;
+  optional<float> lastDryTargetTemperature = nullopt;
 };
 
 }  // namespace mitsubishi_itp

@@ -44,6 +44,31 @@ void MitsubishiUART::save_preferences_() {
     prefs.currentTemperatureSourceIndex = index->second;
   }
 
+  auto lmtt = last_mode_target_temperature_.find(climate::CLIMATE_MODE_HEAT_COOL);
+  if (lmtt != last_mode_target_temperature_.end()) {
+    prefs.lastHeatCoolTargetTemperature = lmtt->second;
+  }
+
+  lmtt = last_mode_target_temperature_.find(climate::CLIMATE_MODE_COOL);
+  if (lmtt != last_mode_target_temperature_.end()) {
+    prefs.lastCoolTargetTemperature = lmtt->second;
+  }
+
+  lmtt = last_mode_target_temperature_.find(climate::CLIMATE_MODE_HEAT);
+  if (lmtt != last_mode_target_temperature_.end()) {
+    prefs.lastHeatTargetTemperature = lmtt->second;
+  }
+
+  lmtt = last_mode_target_temperature_.find(climate::CLIMATE_MODE_FAN_ONLY);
+  if (lmtt != last_mode_target_temperature_.end()) {
+    prefs.lastFanTargetTemperature = lmtt->second;
+  }
+
+  lmtt = last_mode_target_temperature_.find(climate::CLIMATE_MODE_DRY);
+  if (lmtt != last_mode_target_temperature_.end()) {
+    prefs.lastDryTargetTemperature = lmtt->second;
+  }
+
   preferences_.save(&prefs);
 }
 
@@ -57,11 +82,28 @@ void MitsubishiUART::restore_preferences_() {
         temperature_source_select_->at(prefs.currentTemperatureSourceIndex.value()).has_value()) {
       current_temperature_source_ = temperature_source_select_->at(prefs.currentTemperatureSourceIndex.value()).value();
       temperature_source_select_->publish_state(current_temperature_source_);
-      ESP_LOGCONFIG(TAG, "Preferences loaded.");
+      ESP_LOGCONFIG(TAG, "Current Temperature Source preference loaded.");
     } else {
-      ESP_LOGCONFIG(TAG, "Preferences loaded, but unsuitable values.");
+      ESP_LOGCONFIG(TAG, "Current Temperature Source preference loaded, but unsuitable values.");
       current_temperature_source_ = TEMPERATURE_SOURCE_INTERNAL;
       temperature_source_select_->publish_state(TEMPERATURE_SOURCE_INTERNAL);
+    }
+
+    // lastModeTargetTemperatures
+    if (prefs.lastHeatCoolTargetTemperature.has_value()) {
+      last_mode_target_temperature_[climate::CLIMATE_MODE_HEAT_COOL] = prefs.lastHeatCoolTargetTemperature.value();
+    }
+    if (prefs.lastCoolTargetTemperature.has_value()) {
+      last_mode_target_temperature_[climate::CLIMATE_MODE_COOL] = prefs.lastCoolTargetTemperature.value();
+    }
+    if (prefs.lastHeatTargetTemperature.has_value()) {
+      last_mode_target_temperature_[climate::CLIMATE_MODE_HEAT] = prefs.lastHeatTargetTemperature.value();
+    }
+    if (prefs.lastFanTargetTemperature.has_value()) {
+      last_mode_target_temperature_[climate::CLIMATE_MODE_FAN_ONLY] = prefs.lastFanTargetTemperature.value();
+    }
+    if (prefs.lastDryTargetTemperature.has_value()) {
+      last_mode_target_temperature_[climate::CLIMATE_MODE_DRY] = prefs.lastDryTargetTemperature.value();
     }
   } else {
     // TODO: Shouldn't need to define setting all these defaults twice
@@ -207,8 +249,7 @@ void MitsubishiUART::do_publish_() {
     ESP_LOGI(TAG, "Outdoor temp differs, do publish");
     outdoor_temperature_sensor_->publish_state(outdoor_temperature_sensor_->raw_state);
   }
-  if (thermostat_humidity_sensor_ &&
-      (thermostat_humidity_sensor_->raw_state != thermostat_humidity_sensor_->state)) {
+  if (thermostat_humidity_sensor_ && (thermostat_humidity_sensor_->raw_state != thermostat_humidity_sensor_->state)) {
     ESP_LOGI(TAG, "Thermostat humidity differs, do publish");
     thermostat_humidity_sensor_->publish_state(thermostat_humidity_sensor_->raw_state);
   }
