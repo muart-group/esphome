@@ -39,15 +39,11 @@ AUTO_LOAD = [
     "binary_sensor",
     "button",
     "text_sensor",
+    "time",
 ]
 DEPENDENCIES = [
     "uart",
     "climate",
-    "sensor",
-    "binary_sensor",
-    "button",
-    "text_sensor",
-    "select",
 ]
 
 CONF_UART_HEATPUMP = "uart_heatpump"
@@ -318,6 +314,34 @@ CONFIG_SCHEMA = BASE_SCHEMA.extend(
         cv.Optional(CONF_BUTTONS, default={}): BUTTONS_SCHEMA,
     }
 )
+
+
+def final_validate(config):
+    schema = uart.final_validate_device_schema(
+        "mitsubishi_itp",
+        uart_bus=CONF_UART_HEATPUMP,
+        require_tx=True,
+        require_rx=True,
+        data_bits=8,
+        parity="EVEN",
+        stop_bits=1,
+    )
+    if CONF_UART_THERMOSTAT in config:
+        schema = schema.extend(
+            uart.final_validate_device_schema(
+                "mitsubishi_itp",
+                uart_bus=CONF_UART_THERMOSTAT,
+                require_tx=True,
+                require_rx=True,
+                data_bits=8,
+                parity="EVEN",
+                stop_bits=1,
+            )
+        )
+    schema(config)
+
+
+FINAL_VALIDATE_SCHEMA = final_validate
 
 
 @coroutine
