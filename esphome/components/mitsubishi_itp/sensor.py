@@ -5,10 +5,6 @@ from esphome.components import (
     binary_sensor,
     text_sensor,
 )
-from esphome.components.mitsubishi_itp.climate import (
-    CONF_MITSUBISHI_ITP_ID,
-    MitsubishiUART,
-)
 from esphome.const import (
     CONF_ID,
     CONF_OUTDOOR_TEMPERATURE,
@@ -21,6 +17,10 @@ from esphome.const import (
     UNIT_PERCENT,
 )
 from esphome.core import coroutine
+from .climate import (
+    CONF_MITSUBISHI_ITP_ID,
+    MitsubishiUART,
+)
 
 CONF_THERMOSTAT_BATTERY = "thermostat_battery"
 CONF_THERMOSTAT_HUMIDITY = "thermostat_humidity"
