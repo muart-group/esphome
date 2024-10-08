@@ -370,6 +370,20 @@ def boolean(value):
     )
 
 
+def boolean_false(value):
+    """Validate the given config option to be a boolean, set to False.
+
+    This option allows a bunch of different ways of expressing boolean values:
+     - instance of boolean
+     - 'true'/'false'
+     - 'yes'/'no'
+     - 'enable'/disable
+    """
+    if boolean(value):
+        raise Invalid("Expected boolean value to be false")
+    return False
+
+
 @schema_extractor_list
 def ensure_list(*validators):
     """Validate this configuration option to be a list.
@@ -736,6 +750,7 @@ def time_period_str_unit(value):
         "ns": "nanoseconds",
         "nanoseconds": "nanoseconds",
         "us": "microseconds",
+        "µs": "microseconds",
         "microseconds": "microseconds",
         "ms": "milliseconds",
         "milliseconds": "milliseconds",
@@ -2031,6 +2046,7 @@ def require_framework_version(
     esp32_arduino=None,
     esp8266_arduino=None,
     rp2040_arduino=None,
+    bk72xx_libretiny=None,
     host=None,
     max_version=False,
     extra_message=None,
@@ -2045,6 +2061,13 @@ def require_framework_version(
                     msg += f". {extra_message}"
                 raise Invalid(msg)
             required = esp_idf
+        elif CORE.is_bk72xx and framework == "arduino":
+            if bk72xx_libretiny is None:
+                msg = "This feature is incompatible with BK72XX"
+                if extra_message:
+                    msg += f". {extra_message}"
+                raise Invalid(msg)
+            required = bk72xx_libretiny
         elif CORE.is_esp32 and framework == "arduino":
             if esp32_arduino is None:
                 msg = "This feature is incompatible with ESP32 using arduino framework"
