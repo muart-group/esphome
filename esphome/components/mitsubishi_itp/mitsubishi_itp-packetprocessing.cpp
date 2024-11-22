@@ -249,6 +249,7 @@ void MitsubishiUART::process_packet(const SettingsSetRequestPacket &packet) {
   ESP_LOGV(TAG, "Passing through inbound %s", packet.to_string().c_str());
 
   // forward this packet as-is; we're just intercepting to log.
+  route_packet_(packet) ;
   alert_listeners_(packet);
 }
 
