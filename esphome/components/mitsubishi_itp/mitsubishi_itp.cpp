@@ -269,10 +269,12 @@ void MitsubishiUART::temperature_source_report(const std::string &temperature_so
     temperature_source_timeout_ = false;
 
     // Tell the heat pump about the temperature asap, but don't worry about setting it locally, the next update() will
-    // get it
-    RemoteTemperatureSetRequestPacket pkt = RemoteTemperatureSetRequestPacket();
-    pkt.set_remote_temperature(v);
-    hp_bridge_.send_packet(pkt);
+    // get it.  If the source is the thermostat, we've already routed that packet, so don't send a new one.
+    if (temperature_source != TEMPERATURE_SOURCE_THERMOSTAT) {
+      RemoteTemperatureSetRequestPacket pkt = RemoteTemperatureSetRequestPacket();
+      pkt.set_remote_temperature(v);
+      hp_bridge_.send_packet(pkt);
+    }
 
     // If we've changed the select to reflect a temporary reversion to a different source, change it back.
     for (auto *listener : listeners_) {
