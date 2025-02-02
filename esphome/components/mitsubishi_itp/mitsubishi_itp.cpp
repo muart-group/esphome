@@ -51,7 +51,6 @@ void MitsubishiUART::save_preferences_() {
   prefs.modeRecallSetpoints = mode_recall_setpoints_;
   preferences_.save(&prefs);
 }
-
 /* Used for receiving and acting on incoming packets as soon as they're available.
   Because packet processing happens as part of the receiving process, packet processing
   should not block for very long (e.g. no publishing inside the packet processing)
