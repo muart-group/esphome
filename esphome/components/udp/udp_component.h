@@ -1,6 +1,7 @@
 #pragma once
 
 #include "esphome/core/component.h"
+#include "esphome/components/network/ip_address.h"
 #ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
 #endif
@@ -9,7 +10,8 @@
 #endif
 #if defined(USE_SOCKET_IMPL_BSD_SOCKETS) || defined(USE_SOCKET_IMPL_LWIP_SOCKETS)
 #include "esphome/components/socket/socket.h"
-#else
+#endif
+#ifdef USE_SOCKET_IMPL_LWIP_TCP
 #include <WiFiUdp.h>
 #endif
 #include <vector>
@@ -68,6 +70,7 @@ class UDPComponent : public PollingComponent {
   }
 #endif
   void add_address(const char *addr) { this->addresses_.emplace_back(addr); }
+  void set_listen_address(const char *listen_addr) { this->listen_address_ = network::IPAddress(listen_addr); }
   void set_port(uint16_t port) { this->port_ = port; }
   float get_setup_priority() const override { return setup_priority::AFTER_WIFI; }
 
@@ -125,7 +128,8 @@ class UDPComponent : public PollingComponent {
   std::unique_ptr<socket::Socket> broadcast_socket_ = nullptr;
   std::unique_ptr<socket::Socket> listen_socket_ = nullptr;
   std::vector<struct sockaddr> sockaddrs_{};
-#else
+#endif
+#ifdef USE_SOCKET_IMPL_LWIP_TCP
   std::vector<IPAddress> ipaddrs_{};
   WiFiUDP udp_client_{};
 #endif
@@ -141,6 +145,7 @@ class UDPComponent : public PollingComponent {
   std::map<std::string, std::map<std::string, binary_sensor::BinarySensor *>> remote_binary_sensors_{};
 #endif
 
+  optional<network::IPAddress> listen_address_{};
   std::map<std::string, Provider> providers_{};
   std::vector<uint8_t> ping_header_{};
   std::vector<uint8_t> header_{};

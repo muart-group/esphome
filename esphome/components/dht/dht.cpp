@@ -135,7 +135,8 @@ bool HOT IRAM_ATTR DHT::read_sensor_(float *temperature, float *humidity, bool r
 
       // Wait for falling edge
       while (this->pin_->digital_read()) {
-        if ((end_time = micros()) - start_time > 90) {
+        end_time = micros();
+        if (end_time - start_time > 90) {
           if (i < 0) {
             error_code = 3;
           } else {
@@ -156,8 +157,9 @@ bool HOT IRAM_ATTR DHT::read_sensor_(float *temperature, float *humidity, bool r
       if (bit == 0) {
         bit = 7;
         byte++;
-      } else
+      } else {
         bit--;
+      }
     }
   }
   if (!report_errors && error_code != 0)

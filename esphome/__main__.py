@@ -20,6 +20,8 @@ from esphome.const import (
     CONF_DEASSERT_RTS_DTR,
     CONF_DISABLED,
     CONF_ESPHOME,
+    CONF_LEVEL,
+    CONF_LOG_TOPIC,
     CONF_LOGGER,
     CONF_MDNS,
     CONF_MQTT,
@@ -30,6 +32,7 @@ from esphome.const import (
     CONF_PLATFORMIO_OPTIONS,
     CONF_PORT,
     CONF_SUBSTITUTIONS,
+    CONF_TOPIC,
     PLATFORM_BK72XX,
     PLATFORM_ESP32,
     PLATFORM_ESP8266,
@@ -38,7 +41,7 @@ from esphome.const import (
     SECRETS_FILES,
 )
 from esphome.core import CORE, EsphomeError, coroutine
-from esphome.helpers import indent, is_ip_address, get_bool_env
+from esphome.helpers import get_bool_env, indent, is_ip_address
 from esphome.log import Fore, color, setup_log
 from esphome.util import (
     get_serial_ports,
@@ -95,8 +98,12 @@ def choose_upload_log_host(
         options.append((f"Over The Air ({CORE.address})", CORE.address))
         if default == "OTA":
             return CORE.address
-    if show_mqtt and CONF_MQTT in CORE.config:
-        options.append((f"MQTT ({CORE.config['mqtt'][CONF_BROKER]})", "MQTT"))
+    if (
+        show_mqtt
+        and (mqtt_config := CORE.config.get(CONF_MQTT))
+        and mqtt_logging_enabled(mqtt_config)
+    ):
+        options.append((f"MQTT ({mqtt_config[CONF_BROKER]})", "MQTT"))
         if default == "OTA":
             return "MQTT"
     if default is not None:
@@ -104,6 +111,17 @@ def choose_upload_log_host(
     if check_default is not None and check_default in [opt[1] for opt in options]:
         return check_default
     return choose_prompt(options, purpose=purpose)
+
+
+def mqtt_logging_enabled(mqtt_config):
+    log_topic = mqtt_config[CONF_LOG_TOPIC]
+    if log_topic is None:
+        return False
+    if CONF_TOPIC not in log_topic:
+        return False
+    if log_topic.get(CONF_LEVEL, None) == "NONE":
+        return False
+    return True
 
 
 def get_port_type(port):
@@ -345,7 +363,7 @@ def upload_program(config, args, host):
 
     from esphome import espota2
 
-    remote_port = ota_conf[CONF_PORT]
+    remote_port = int(ota_conf[CONF_PORT])
     password = ota_conf.get(CONF_PASSWORD, "")
 
     if (
@@ -378,7 +396,7 @@ def show_logs(config, args, port):
 
             port = mqtt.get_esphome_device_ip(
                 config, args.username, args.password, args.client_id
-            )
+            )[0]
 
         from esphome.components.api.client import run_logs
 
@@ -741,6 +759,14 @@ def parse_args(argv):
         "-q", "--quiet", help="Disable all ESPHome logs.", action="store_true"
     )
     options_parser.add_argument(
+        "-l",
+        "--log-level",
+        help="Set the log level.",
+        default=os.getenv("ESPHOME_LOG_LEVEL", "INFO"),
+        action="store",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+    )
+    options_parser.add_argument(
         "--dashboard", help=argparse.SUPPRESS, action="store_true"
     )
     options_parser.add_argument(
@@ -969,11 +995,16 @@ def run_esphome(argv):
     args = parse_args(argv)
     CORE.dashboard = args.dashboard
 
+    # Override log level if verbose is set
+    if args.verbose:
+        args.log_level = "DEBUG"
+    elif args.quiet:
+        args.log_level = "CRITICAL"
+
     setup_log(
-        args.verbose,
-        args.quiet,
+        log_level=args.log_level,
         # Show timestamp for dashboard access logs
-        args.command == "dashboard",
+        include_timestamp=args.command == "dashboard",
     )
 
     if args.command in PRE_CONFIG_ACTIONS:
