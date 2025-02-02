@@ -257,9 +257,8 @@ void MitsubishiUART::process_packet(const RemoteTemperatureSetRequestPacket &pac
   ESP_LOGV(TAG, "Processing %s", packet.to_string().c_str());
 
   // Only send this temperature packet to the heatpump if Thermostat is the selected source,
-  // or we're in passive mode (since in passive mode we're not generating any packets to
-  // set the temperature) otherwise just respond to the thermostat to keep it happy.
-  if (current_temperature_source_ == TEMPERATURE_SOURCE_THERMOSTAT || !active_mode_) {
+  // otherwise just respond to the thermostat to keep it happy.
+  if (current_temperature_source_ == TEMPERATURE_SOURCE_THERMOSTAT) {
     route_packet_(packet);
   } else {
     ts_bridge_->send_packet(SetResponsePacket());
