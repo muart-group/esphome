@@ -6,12 +6,13 @@
 #include "esphome/components/watchdog/watchdog.h"
 
 #include "esphome/core/application.h"
-#include "esphome/core/defines.h"
 #include "esphome/core/log.h"
 
 #if CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
 #include "esp_crt_bundle.h"
 #endif
+
+#include "esp_task_wdt.h"
 
 namespace esphome {
 namespace http_request {
@@ -118,20 +119,17 @@ std::shared_ptr<HttpContainer> HttpRequestIDF::start(std::string url, std::strin
     return nullptr;
   }
 
-  auto is_ok = [](int code) { return code >= HttpStatus_Ok && code < HttpStatus_MultipleChoices; };
-
+  container->feed_wdt();
   container->content_length = esp_http_client_fetch_headers(client);
+  container->feed_wdt();
   container->status_code = esp_http_client_get_status_code(client);
-  if (is_ok(container->status_code)) {
+  container->feed_wdt();
+  if (is_success(container->status_code)) {
     container->duration_ms = millis() - start;
     return container;
   }
 
   if (this->follow_redirects_) {
-    auto is_redirect = [](int code) {
-      return code == HttpStatus_MovedPermanently || code == HttpStatus_Found || code == HttpStatus_SeeOther ||
-             code == HttpStatus_TemporaryRedirect || code == HttpStatus_PermanentRedirect;
-    };
     auto num_redirects = this->redirect_limit_;
     while (is_redirect(container->status_code) && num_redirects > 0) {
       err = esp_http_client_set_redirection(client);
@@ -142,9 +140,9 @@ std::shared_ptr<HttpContainer> HttpRequestIDF::start(std::string url, std::strin
         return nullptr;
       }
 #if ESPHOME_LOG_LEVEL >= ESPHOME_LOG_LEVEL_VERBOSE
-      char url[256]{};
-      if (esp_http_client_get_url(client, url, sizeof(url) - 1) == ESP_OK) {
-        ESP_LOGV(TAG, "redirecting to url: %s", url);
+      char redirect_url[256]{};
+      if (esp_http_client_get_url(client, redirect_url, sizeof(redirect_url) - 1) == ESP_OK) {
+        ESP_LOGV(TAG, "redirecting to url: %s", redirect_url);
       }
 #endif
       err = esp_http_client_open(client, 0);
@@ -155,9 +153,12 @@ std::shared_ptr<HttpContainer> HttpRequestIDF::start(std::string url, std::strin
         return nullptr;
       }
 
+      container->feed_wdt();
       container->content_length = esp_http_client_fetch_headers(client);
+      container->feed_wdt();
       container->status_code = esp_http_client_get_status_code(client);
-      if (is_ok(container->status_code)) {
+      container->feed_wdt();
+      if (is_success(container->status_code)) {
         container->duration_ms = millis() - start;
         return container;
       }
@@ -172,8 +173,7 @@ std::shared_ptr<HttpContainer> HttpRequestIDF::start(std::string url, std::strin
 
   ESP_LOGE(TAG, "HTTP Request failed; URL: %s; Code: %d", url.c_str(), container->status_code);
   this->status_momentary_error("failed", 1000);
-  esp_http_client_cleanup(client);
-  return nullptr;
+  return container;
 }
 
 int HttpContainerIDF::read(uint8_t *buf, size_t max_len) {
@@ -187,8 +187,9 @@ int HttpContainerIDF::read(uint8_t *buf, size_t max_len) {
     return 0;
   }
 
-  App.feed_wdt();
+  this->feed_wdt();
   int read_len = esp_http_client_read(this->client_, (char *) buf, bufsize);
+  this->feed_wdt();
   this->bytes_read_ += read_len;
 
   this->duration_ms += (millis() - start);
@@ -201,6 +202,13 @@ void HttpContainerIDF::end() {
 
   esp_http_client_close(this->client_);
   esp_http_client_cleanup(this->client_);
+}
+
+void HttpContainerIDF::feed_wdt() {
+  // Tests to see if the executing task has a watchdog timer attached
+  if (esp_task_wdt_status(nullptr) == ESP_OK) {
+    App.feed_wdt();
+  }
 }
 
 }  // namespace http_request

@@ -22,6 +22,7 @@ from esphome.const import (
     CONF_DISCOVERY_PREFIX,
     CONF_DISCOVERY_RETAIN,
     CONF_DISCOVERY_UNIQUE_ID_GENERATOR,
+    CONF_ENABLE_ON_BOOT,
     CONF_ID,
     CONF_KEEPALIVE,
     CONF_LEVEL,
@@ -41,12 +42,14 @@ from esphome.const import (
     CONF_SHUTDOWN_MESSAGE,
     CONF_SSL_FINGERPRINTS,
     CONF_STATE_TOPIC,
+    CONF_SUBSCRIBE_QOS,
     CONF_TOPIC,
     CONF_TOPIC_PREFIX,
     CONF_TRIGGER_ID,
     CONF_USE_ABBREVIATIONS,
     CONF_USERNAME,
     CONF_WILL_MESSAGE,
+    CONF_PUBLISH_NAN_AS_NONE,
     PLATFORM_BK72XX,
     PLATFORM_ESP32,
     PLATFORM_ESP8266,
@@ -98,6 +101,8 @@ MQTTMessage = mqtt_ns.struct("MQTTMessage")
 MQTTClientComponent = mqtt_ns.class_("MQTTClientComponent", cg.Component)
 MQTTPublishAction = mqtt_ns.class_("MQTTPublishAction", automation.Action)
 MQTTPublishJsonAction = mqtt_ns.class_("MQTTPublishJsonAction", automation.Action)
+MQTTEnableAction = mqtt_ns.class_("MQTTEnableAction", automation.Action)
+MQTTDisableAction = mqtt_ns.class_("MQTTDisableAction", automation.Action)
 MQTTMessageTrigger = mqtt_ns.class_(
     "MQTTMessageTrigger", automation.Trigger.template(cg.std_string), cg.Component
 )
@@ -207,6 +212,7 @@ CONFIG_SCHEMA = cv.All(
         {
             cv.GenerateID(): cv.declare_id(MQTTClientComponent),
             cv.Required(CONF_BROKER): cv.string_strict,
+            cv.Optional(CONF_ENABLE_ON_BOOT, default=True): cv.boolean,
             cv.Optional(CONF_PORT, default=1883): cv.port,
             cv.Optional(CONF_USERNAME, default=""): cv.string,
             cv.Optional(CONF_PASSWORD, default=""): cv.string,
@@ -291,6 +297,7 @@ CONFIG_SCHEMA = cv.All(
                     cv.Optional(CONF_QOS, default=0): cv.mqtt_qos,
                 }
             ),
+            cv.Optional(CONF_PUBLISH_NAN_AS_NONE, default=False): cv.boolean,
         }
     ),
     validate_config,
@@ -324,6 +331,7 @@ async def to_code(config):
     cg.add_global(mqtt_ns.using)
 
     cg.add(var.set_broker_address(config[CONF_BROKER]))
+    cg.add(var.set_enable_on_boot(config[CONF_ENABLE_ON_BOOT]))
     cg.add(var.set_broker_port(config[CONF_PORT]))
     cg.add(var.set_username(config[CONF_USERNAME]))
     cg.add(var.set_password(config[CONF_PASSWORD]))
@@ -365,7 +373,7 @@ async def to_code(config):
             )
         )
 
-    cg.add(var.set_topic_prefix(config[CONF_TOPIC_PREFIX]))
+    cg.add(var.set_topic_prefix(config[CONF_TOPIC_PREFIX], CORE.name))
 
     if config[CONF_USE_ABBREVIATIONS]:
         cg.add_define("USE_MQTT_ABBREVIATIONS")
@@ -443,6 +451,8 @@ async def to_code(config):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
 
+    cg.add(var.set_publish_nan_as_none(config[CONF_PUBLISH_NAN_AS_NONE]))
+
 
 MQTT_PUBLISH_ACTION_SCHEMA = cv.Schema(
     {
@@ -518,6 +528,8 @@ async def register_mqtt_component(var, config):
         cg.add(var.set_qos(config[CONF_QOS]))
     if CONF_RETAIN in config:
         cg.add(var.set_retain(config[CONF_RETAIN]))
+    if CONF_SUBSCRIBE_QOS in config:
+        cg.add(var.set_subscribe_qos(config[CONF_SUBSCRIBE_QOS]))
     if not config.get(CONF_DISCOVERY, True):
         cg.add(var.disable_discovery())
     if CONF_STATE_TOPIC in config:
@@ -552,3 +564,31 @@ async def register_mqtt_component(var, config):
 async def mqtt_connected_to_code(config, condition_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
     return cg.new_Pvariable(condition_id, template_arg, paren)
+
+
+@automation.register_action(
+    "mqtt.enable",
+    MQTTEnableAction,
+    cv.Schema(
+        {
+            cv.GenerateID(): cv.use_id(MQTTClientComponent),
+        }
+    ),
+)
+async def mqtt_enable_to_code(config, action_id, template_arg, args):
+    paren = await cg.get_variable(config[CONF_ID])
+    return cg.new_Pvariable(action_id, template_arg, paren)
+
+
+@automation.register_action(
+    "mqtt.disable",
+    MQTTDisableAction,
+    cv.Schema(
+        {
+            cv.GenerateID(): cv.use_id(MQTTClientComponent),
+        }
+    ),
+)
+async def mqtt_disable_to_code(config, action_id, template_arg, args):
+    paren = await cg.get_variable(config[CONF_ID])
+    return cg.new_Pvariable(action_id, template_arg, paren)

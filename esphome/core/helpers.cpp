@@ -10,6 +10,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <strings.h>
 
 #ifdef USE_HOST
 #ifndef _WIN32
@@ -44,7 +45,9 @@
 #endif
 #ifdef USE_ESP32
 #include "esp32/rom/crc.h"
-
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 2)
+#include "esp_mac.h"
+#endif
 #include "esp_efuse.h"
 #include "esp_efuse_table.h"
 #endif
@@ -125,19 +128,21 @@ uint16_t crc16(const uint8_t *data, uint16_t len, uint16_t crc, uint16_t reverse
     }
   } else
 #endif
-      if (reverse_poly == 0xa001) {
-    while (len--) {
-      uint8_t combo = crc ^ (uint8_t) *data++;
-      crc = (crc >> 8) ^ CRC16_A001_LE_LUT_L[combo & 0x0F] ^ CRC16_A001_LE_LUT_H[combo >> 4];
-    }
-  } else {
-    while (len--) {
-      crc ^= *data++;
-      for (uint8_t i = 0; i < 8; i++) {
-        if (crc & 0x0001) {
-          crc = (crc >> 1) ^ reverse_poly;
-        } else {
-          crc >>= 1;
+  {
+    if (reverse_poly == 0xa001) {
+      while (len--) {
+        uint8_t combo = crc ^ (uint8_t) *data++;
+        crc = (crc >> 8) ^ CRC16_A001_LE_LUT_L[combo & 0x0F] ^ CRC16_A001_LE_LUT_H[combo >> 4];
+      }
+    } else {
+      while (len--) {
+        crc ^= *data++;
+        for (uint8_t i = 0; i < 8; i++) {
+          if (crc & 0x0001) {
+            crc = (crc >> 1) ^ reverse_poly;
+          } else {
+            crc >>= 1;
+          }
         }
       }
     }
@@ -188,37 +193,39 @@ uint32_t fnv1_hash(const std::string &str) {
   return hash;
 }
 
-uint32_t random_uint32() {
 #ifdef USE_ESP32
-  return esp_random();
+uint32_t random_uint32() { return esp_random(); }
 #elif defined(USE_ESP8266)
-  return os_random();
+uint32_t random_uint32() { return os_random(); }
 #elif defined(USE_RP2040)
+uint32_t random_uint32() {
   uint32_t result = 0;
   for (uint8_t i = 0; i < 32; i++) {
     result <<= 1;
     result |= rosc_hw->randombit;
   }
   return result;
+}
 #elif defined(USE_LIBRETINY)
-  return rand();
+uint32_t random_uint32() { return rand(); }
 #elif defined(USE_HOST)
+uint32_t random_uint32() {
   std::random_device dev;
   std::mt19937 rng(dev());
   std::uniform_int_distribution<uint32_t> dist(0, std::numeric_limits<uint32_t>::max());
   return dist(rng);
-#else
-#error "No random source available for this configuration."
-#endif
 }
+#endif
 float random_float() { return static_cast<float>(random_uint32()) / static_cast<float>(UINT32_MAX); }
-bool random_bytes(uint8_t *data, size_t len) {
 #ifdef USE_ESP32
+bool random_bytes(uint8_t *data, size_t len) {
   esp_fill_random(data, len);
   return true;
+}
 #elif defined(USE_ESP8266)
-  return os_get_random(data, len) == 0;
+bool random_bytes(uint8_t *data, size_t len) { return os_get_random(data, len) == 0; }
 #elif defined(USE_RP2040)
+bool random_bytes(uint8_t *data, size_t len) {
   while (len-- != 0) {
     uint8_t result = 0;
     for (uint8_t i = 0; i < 8; i++) {
@@ -228,10 +235,14 @@ bool random_bytes(uint8_t *data, size_t len) {
     *data++ = result;
   }
   return true;
+}
 #elif defined(USE_LIBRETINY)
+bool random_bytes(uint8_t *data, size_t len) {
   lt_rand_bytes(data, len);
   return true;
+}
 #elif defined(USE_HOST)
+bool random_bytes(uint8_t *data, size_t len) {
   FILE *fp = fopen("/dev/urandom", "r");
   if (fp == nullptr) {
     ESP_LOGW(TAG, "Could not open /dev/urandom, errno=%d", errno);
@@ -244,20 +255,23 @@ bool random_bytes(uint8_t *data, size_t len) {
   }
   fclose(fp);
   return true;
-#else
-#error "No random source available for this configuration."
-#endif
 }
+#endif
 
 // Strings
 
 bool str_equals_case_insensitive(const std::string &a, const std::string &b) {
   return strcasecmp(a.c_str(), b.c_str()) == 0;
 }
+#if __cplusplus >= 202002L
+bool str_startswith(const std::string &str, const std::string &start) { return str.starts_with(start); }
+bool str_endswith(const std::string &str, const std::string &end) { return str.ends_with(end); }
+#else
 bool str_startswith(const std::string &str, const std::string &start) { return str.rfind(start, 0) == 0; }
 bool str_endswith(const std::string &str, const std::string &end) {
   return str.rfind(end) == (str.size() - end.size());
 }
+#endif
 std::string str_truncate(const std::string &str, size_t length) {
   return str.length() > length ? str.substr(0, length) : str;
 }
@@ -288,7 +302,7 @@ std::string str_sanitize(const std::string &str) {
   std::replace_if(
       out.begin(), out.end(),
       [](const char &c) {
-        return !(c == '-' || c == '_' || (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
+        return c != '-' && c != '_' && (c < '0' || c > '9') && (c < 'a' || c > 'z') && (c < 'A' || c > 'Z');
       },
       '_');
   return out;
@@ -391,6 +405,18 @@ std::string format_hex_pretty(const uint16_t *data, size_t length) {
   return ret;
 }
 std::string format_hex_pretty(const std::vector<uint16_t> &data) { return format_hex_pretty(data.data(), data.size()); }
+
+std::string format_bin(const uint8_t *data, size_t length) {
+  std::string result;
+  result.resize(length * 8);
+  for (size_t byte_idx = 0; byte_idx < length; byte_idx++) {
+    for (size_t bit_idx = 0; bit_idx < 8; bit_idx++) {
+      result[byte_idx * 8 + bit_idx] = ((data[byte_idx] >> (7 - bit_idx)) & 1) + '0';
+    }
+  }
+
+  return result;
+}
 
 ParseOnOffState parse_on_off(const char *str, const char *on, const char *off) {
   if (on == nullptr && strcasecmp(str, "on") == 0)
@@ -619,11 +645,13 @@ void hsv_to_rgb(int hue, float saturation, float value, float &red, float &green
 #if defined(USE_ESP8266) || defined(USE_RP2040) || defined(USE_HOST)
 // ESP8266 doesn't have mutexes, but that shouldn't be an issue as it's single-core and non-preemptive OS.
 Mutex::Mutex() {}
+Mutex::~Mutex() {}
 void Mutex::lock() {}
 bool Mutex::try_lock() { return true; }
 void Mutex::unlock() {}
 #elif defined(USE_ESP32) || defined(USE_LIBRETINY)
 Mutex::Mutex() { handle_ = xSemaphoreCreateMutex(); }
+Mutex::~Mutex() {}
 void Mutex::lock() { xSemaphoreTake(this->handle_, portMAX_DELAY); }
 bool Mutex::try_lock() { return xSemaphoreTake(this->handle_, 0) == pdTRUE; }
 void Mutex::unlock() { xSemaphoreGive(this->handle_); }
@@ -657,11 +685,13 @@ void HighFrequencyLoopRequester::stop() {
 }
 bool HighFrequencyLoopRequester::is_high_frequency() { return num_requests > 0; }
 
-void get_mac_address_raw(uint8_t *mac) {  // NOLINT(readability-non-const-parameter)
 #if defined(USE_HOST)
+void get_mac_address_raw(uint8_t *mac) {  // NOLINT(readability-non-const-parameter)
   static const uint8_t esphome_host_mac_address[6] = USE_ESPHOME_HOST_MAC_ADDRESS;
   memcpy(mac, esphome_host_mac_address, sizeof(esphome_host_mac_address));
+}
 #elif defined(USE_ESP32)
+void get_mac_address_raw(uint8_t *mac) {  // NOLINT(readability-non-const-parameter)
 #if defined(CONFIG_SOC_IEEE802154_SUPPORTED)
   // When CONFIG_SOC_IEEE802154_SUPPORTED is defined, esp_efuse_mac_get_default
   // returns the 802.15.4 EUI-64 address, so we read directly from eFuse instead.
@@ -677,16 +707,22 @@ void get_mac_address_raw(uint8_t *mac) {  // NOLINT(readability-non-const-parame
     esp_efuse_mac_get_default(mac);
   }
 #endif
+}
 #elif defined(USE_ESP8266)
+void get_mac_address_raw(uint8_t *mac) {  // NOLINT(readability-non-const-parameter)
   wifi_get_macaddr(STATION_IF, mac);
-#elif defined(USE_RP2040) && defined(USE_WIFI)
+}
+#elif defined(USE_RP2040)
+void get_mac_address_raw(uint8_t *mac) {  // NOLINT(readability-non-const-parameter)
+#ifdef USE_WIFI
   WiFi.macAddress(mac);
-#elif defined(USE_LIBRETINY)
-  WiFi.macAddress(mac);
-#else
-// this should be an error, but that messes with CI checks. #error No mac address method defined
 #endif
 }
+#elif defined(USE_LIBRETINY)
+void get_mac_address_raw(uint8_t *mac) {  // NOLINT(readability-non-const-parameter)
+  WiFi.macAddress(mac);
+}
+#endif
 
 std::string get_mac_address() {
   uint8_t mac[6];
@@ -735,7 +771,8 @@ bool mac_address_is_valid(const uint8_t *mac) {
   return !(is_all_zeros || is_all_ones);
 }
 
-void delay_microseconds_safe(uint32_t us) {  // avoids CPU locks that could trigger WDT or affect WiFi/BT stability
+void IRAM_ATTR HOT delay_microseconds_safe(uint32_t us) {
+  // avoids CPU locks that could trigger WDT or affect WiFi/BT stability
   uint32_t start = micros();
 
   const uint32_t lag = 5000;  // microseconds, specifies the maximum time for a CPU busy-loop.

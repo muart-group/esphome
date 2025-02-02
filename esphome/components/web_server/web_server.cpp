@@ -455,8 +455,9 @@ void WebServer::handle_fan_request(AsyncWebServerRequest *request, const UrlMatc
     } else if (match.method == "toggle") {
       this->schedule_([obj]() { obj->toggle().perform(); });
       request->send(200);
-    } else if (match.method == "turn_on") {
-      auto call = obj->turn_on();
+    } else if (match.method == "turn_on" || match.method == "turn_off") {
+      auto call = match.method == "turn_on" ? obj->turn_on() : obj->turn_off();
+
       if (request->hasParam("speed_level")) {
         auto speed_level = request->getParam("speed_level")->value();
         auto val = parse_number<int>(speed_level.c_str());
@@ -485,9 +486,6 @@ void WebServer::handle_fan_request(AsyncWebServerRequest *request, const UrlMatc
         }
       }
       this->schedule_([call]() mutable { call.perform(); });
-      request->send(200);
-    } else if (match.method == "turn_off") {
-      this->schedule_([obj]() { obj->turn_off().perform(); });
       request->send(200);
     } else {
       request->send(404);
@@ -1415,6 +1413,30 @@ void WebServer::handle_alarm_control_panel_request(AsyncWebServerRequest *reques
       request->send(200, "application/json", data.c_str());
       return;
     }
+
+    auto call = obj->make_call();
+    if (request->hasParam("code")) {
+      call.set_code(request->getParam("code")->value().c_str());
+    }
+
+    if (match.method == "disarm") {
+      call.disarm();
+    } else if (match.method == "arm_away") {
+      call.arm_away();
+    } else if (match.method == "arm_home") {
+      call.arm_home();
+    } else if (match.method == "arm_night") {
+      call.arm_night();
+    } else if (match.method == "arm_vacation") {
+      call.arm_vacation();
+    } else {
+      request->send(404);
+      return;
+    }
+
+    this->schedule_([call]() mutable { call.perform(); });
+    request->send(200);
+    return;
   }
   request->send(404);
 }
@@ -1441,9 +1463,26 @@ std::string WebServer::alarm_control_panel_json(alarm_control_panel::AlarmContro
 void WebServer::on_event(event::Event *obj, const std::string &event_type) {
   this->events_.send(this->event_json(obj, event_type, DETAIL_STATE).c_str(), "state");
 }
+void WebServer::handle_event_request(AsyncWebServerRequest *request, const UrlMatch &match) {
+  for (event::Event *obj : App.get_events()) {
+    if (obj->get_object_id() != match.id)
+      continue;
 
+    if (request->method() == HTTP_GET && match.method.empty()) {
+      auto detail = DETAIL_STATE;
+      auto *param = request->getParam("detail");
+      if (param && param->value() == "all") {
+        detail = DETAIL_ALL;
+      }
+      std::string data = this->event_json(obj, "", detail);
+      request->send(200, "application/json", data.c_str());
+      return;
+    }
+  }
+  request->send(404);
+}
 std::string WebServer::event_json(event::Event *obj, const std::string &event_type, JsonDetail start_config) {
-  return json::build_json([obj, event_type, start_config](JsonObject root) {
+  return json::build_json([this, obj, event_type, start_config](JsonObject root) {
     set_json_id(root, obj, "event-" + obj->get_object_id(), start_config);
     if (!event_type.empty()) {
       root["event_type"] = event_type;
@@ -1454,6 +1493,12 @@ std::string WebServer::event_json(event::Event *obj, const std::string &event_ty
         event_types.add(event_type);
       }
       root["device_class"] = obj->get_device_class();
+      if (this->sorting_entitys_.find(obj) != this->sorting_entitys_.end()) {
+        root["sorting_weight"] = this->sorting_entitys_[obj].weight;
+        if (this->sorting_groups_.find(this->sorting_entitys_[obj].group_id) != this->sorting_groups_.end()) {
+          root["sorting_group"] = this->sorting_groups_[this->sorting_entitys_[obj].group_id].name;
+        }
+      }
     }
   });
 }
@@ -1641,7 +1686,12 @@ bool WebServer::canHandle(AsyncWebServerRequest *request) {
 #endif
 
 #ifdef USE_ALARM_CONTROL_PANEL
-  if (request->method() == HTTP_GET && match.domain == "alarm_control_panel")
+  if ((request->method() == HTTP_GET || request->method() == HTTP_POST) && match.domain == "alarm_control_panel")
+    return true;
+#endif
+
+#ifdef USE_EVENT
+  if (request->method() == HTTP_GET && match.domain == "event")
     return true;
 #endif
 

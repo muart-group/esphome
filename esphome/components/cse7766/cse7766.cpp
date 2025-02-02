@@ -43,7 +43,7 @@ bool CSE7766Component::check_byte_() {
   uint8_t index = this->raw_data_index_;
   uint8_t byte = this->raw_data_[index];
   if (index == 0) {
-    return !((byte != 0x55) && ((byte & 0xF0) != 0xF0) && (byte != 0xAA));
+    return (byte == 0x55) || ((byte & 0xF0) == 0xF0) || (byte == 0xAA);
   }
 
   if (index == 1) {
@@ -244,7 +244,7 @@ void CSE7766Component::dump_config() {
   LOG_SENSOR("  ", "Apparent Power", this->apparent_power_sensor_);
   LOG_SENSOR("  ", "Reactive Power", this->reactive_power_sensor_);
   LOG_SENSOR("  ", "Power Factor", this->power_factor_sensor_);
-  this->check_uart_settings(4800);
+  this->check_uart_settings(4800, 1, uart::UART_CONFIG_PARITY_EVEN);
 }
 
 }  // namespace cse7766

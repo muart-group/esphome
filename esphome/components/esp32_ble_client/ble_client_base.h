@@ -26,6 +26,7 @@ class BLEClientBase : public espbt::ESPBTClient, public Component {
   void setup() override;
   void loop() override;
   float get_setup_priority() const override;
+  void dump_config() override;
 
   void run_later(std::function<void()> &&f);  // NOLINT
   bool parse_device(const espbt::ESPBTDevice &device) override;
@@ -35,7 +36,7 @@ class BLEClientBase : public espbt::ESPBTClient, public Component {
   void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) override;
   void connect() override;
   esp_err_t pair();
-  void disconnect();
+  void disconnect() override;
   void release_services();
 
   bool connected() { return this->state_ == espbt::ClientState::ESTABLISHED; }
@@ -103,6 +104,7 @@ class BLEClientBase : public espbt::ESPBTClient, public Component {
   bool paired_{false};
   espbt::ConnectionType connection_type_{espbt::ConnectionType::V1};
   std::vector<BLEService *> services_;
+  esp_gatt_status_t status_{ESP_GATT_OK};
 
   void log_event_(const char *name);
 };
