@@ -1,3 +1,7 @@
+⚠️ Development has moved to [https://github.com/muart-group/esphome-components](https://github.com/muart-group/esphome-components), this repository will be archived and removed soon.
+
+*I will try to transfer any still-relevant issues from this repo to the new one, but enough context has changed that I might just leave them behind and let users re-open with current information -Sam*
+
 # muart-group/esphome
 
 ESPHome fork for development of the `mitsubishi_uart` component. Check out the documentation for more info: [muart-group.github.io/](muart-group.github.io/).
